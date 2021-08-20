@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>A dontpad clone</title>
+    </head>
+    
+    <body>
+        
+        <textarea></textarea>
+        
+        <script>
+            window.onload = setupWebSocket;
+            window.onhashchange = setupWebSocket;
+
+            if (!window.location.hash) {
+                const newDocumentId = Date.now().toString(36);
+                window.history.pushState(null, null, "#" + newDocumentId);
+            }
+
+            function setupWebSocket() {
+                const textArea = document.querySelector("textarea");
+                const ws = new WebSocket(`ws://localhost:1234/docs/${window.location.hash.substr(1)}`);
+                textArea.onkeyup = () => ws.send(textArea.value);
+                ws.onmessage = msg => {
+                    const offset = msg.data.length - textArea.value.length;
+                    const selection = {start: textArea.selectionStart, end: textArea.selectionEnd};
+                    const startsSame = msg.data.startsWith(textArea.value.substring(0, selection.end));
+                    const endsSame = msg.data.endsWith(textArea.value.substring(selection.start));
+                    textArea.value = msg.data;
+                    if (startsSame && !endsSame) {
+                        textArea.setSelectionRange(selection.start, selection.end);
+                    } else if (!startsSame && endsSame) {
+                        textArea.setSelectionRange(selection.start + offset, selection.end + offset);
+                    } else {
+                        textArea.setSelectionRange(selection.start, selection.end + offset);
+                    }
+                };
+                ws.onclose = setupWebSocket;
+            }
+        </script>
+        
+        <style>
+            textarea {
+                width: 100%;
+                height: 10000%;
+                border: none;
+    			outline: none;             
+                font-size: 18px;
+                min-height: 80vh;
+            }
+        </style>
+        
+    </body>
+</html>
